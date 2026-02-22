@@ -143,10 +143,11 @@ function App() {
           <button onClick={startQna}>Run QnA Agent</button>
           {(state.chat || []).map((m, i) => <div key={i} className={`chat ${m.role.includes("assistant") ? "assistant" : "user"}`}>{m.role}: {m.content}</div>)}
           {pending && (
-            <div className="chat assistant">
+            <div className="toolcard">
               <div><b>Approval needed:</b> {pending.tool?.name}</div>
-              <button style={{ fontSize: "12px", padding: "2px 8px" }} onClick={() => decision(true)}>Approve</button>
-              <button style={{ fontSize: "12px", padding: "2px 8px" }} onClick={() => decision(false)}>Reject</button>
+              <div><small>{JSON.stringify(pending.tool?.args || {})}</small></div>
+              <button className="smallbtn" onClick={() => decision(true)}>Approve</button>
+              <button className="smallbtn" onClick={() => decision(false)}>Reject</button>
             </div>
           )}
         </div>

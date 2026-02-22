@@ -112,7 +112,7 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/api/chat/start_qna":
             query = payload.get("query", "what does my telemetry contain?")
             run_id = str(uuid.uuid4())
-            CHAT_RUNS[run_id] = start_chat_qna(STATE, user_query=query)
+            CHAT_RUNS[run_id] = start_chat_qna(STATE, user_query=query, llm=LLM)
             self._json(200, {"run_id": run_id, "state": STATE})
             return
 
