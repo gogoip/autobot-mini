@@ -183,7 +183,9 @@ def _execute_tool(db_path: Path, call: ToolCall, ctx: Any):
     if call.name == "final_answer":
         rows = ctx.data.get("sql_rows", [])
         obs = ctx.data.get("observations", [])
-        return {"answer": f"I queried telemetry and found {len(rows)} rows. Key observations: {obs if obs else 'no critical spikes in sample slice.'}"}
+        refs = ctx.data.get("web_results", [])
+        ref_text = [r.get("title", "") for r in refs][:2]
+        return {"answer": f"I queried telemetry and found {len(rows)} rows. Key observations: {obs if obs else 'no critical spikes in sample slice.'} External refs: {ref_text if ref_text else ['none']}."}
     return None
 
 
@@ -203,13 +205,16 @@ def next_chat_event(state: dict, db_path: Path, ctx: ChatContext, approval: bool
         if call.name == "build_sql":
             return {"message": f"sql-agent: built SQL -> {result['sql']}", "requires_approval": False}
         if call.name == "execute_sql":
-            return {"message": f"sql-agent: executed SQL and fetched {len(result['rows'])} rows", "requires_approval": False}
+            sample = result["rows"][:3]
+            return {"message": f"sql-agent: executed SQL and fetched {len(result['rows'])} rows. Sample: {sample}", "requires_approval": False}
         if call.name == "optimize_analysis":
             ctx.data["observations"] = result.get("observations", [])
-            return {"message": f"optimizer-agent: {result.get('observations', [])}", "requires_approval": False}
+            msg = result.get("observations", []) or ["No major optimization red flags from this SQL slice."]
+            return {"message": f"optimizer-agent: findings -> {msg}", "requires_approval": False}
         if call.name == "tavily_search":
             ctx.data["web_results"] = result.get("results", [])
-            return {"message": f"research-agent: got {len(result.get('results', []))} web references", "requires_approval": False}
+            refs = [f"{r.get('title','n/a')} ({r.get('url','')})" for r in result.get("results", [])]
+            return {"message": f"research-agent: references -> {refs if refs else ['none']}", "requires_approval": False}
         if call.name == "final_answer":
             ctx.done = True
             return {"message": result["answer"], "done": True}

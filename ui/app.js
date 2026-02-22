@@ -1,5 +1,23 @@
 const { useEffect, useState } = React;
 
+function TablePreview({ name, rows }) {
+  if (!rows || !rows.length) return <div><h5>{name}</h5><small>No rows</small></div>;
+  const cols = Object.keys(rows[0]);
+  return (
+    <div style={{ marginBottom: "10px" }}>
+      <h5>{name}</h5>
+      <div style={{ overflowX: "auto", border: "1px solid #e5e7eb", borderRadius: "6px" }}>
+        <table style={{ borderCollapse: "collapse", width: "100%", fontSize: "12px" }}>
+          <thead><tr>{cols.map((c) => <th key={c} style={{ borderBottom: "1px solid #ddd", textAlign: "left", padding: "4px" }}>{c}</th>)}</tr></thead>
+          <tbody>
+            {rows.map((r, i) => <tr key={i}>{cols.map((c) => <td key={c} style={{ borderBottom: "1px solid #f1f5f9", padding: "4px" }}>{String(r[c])}</td>)}</tr>)}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const [state, setState] = useState({ agent_log: [], chat: [], latest_findings: [], proposed_actions: [] });
   const [wlm, setWlm] = useState([]);
@@ -20,28 +38,6 @@ function App() {
   });
   useEffect(() => { refresh(); }, []);
 
-  const typeAppend = (msg) => {
-    let i = 0;
-    const id = setInterval(() => {
-      i += 3;
-      const content = msg.slice(0, i);
-      setState((prev) => {
-        const chat = [...(prev.chat || [])];
-        if (!chat.length || chat[chat.length - 1].role !== "assistant-typing") chat.push({ role: "assistant-typing", content: "" });
-        chat[chat.length - 1] = { role: "assistant-typing", content };
-        return { ...prev, chat };
-      });
-      if (i >= msg.length) {
-        clearInterval(id);
-        setState((prev) => {
-          const chat = [...(prev.chat || [])];
-          chat[chat.length - 1] = { role: "assistant", content: msg };
-          return { ...prev, chat };
-        });
-      }
-    }, 20);
-  };
-
   const connectDb = async () => {
     const r = await fetch("/api/connect", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ db_path: conn.db_path }) });
     const d = await r.json();
@@ -52,16 +48,14 @@ function App() {
     if (!message.trim()) return;
     const r = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message }) });
     const d = await r.json();
-    setState(d.state);
-    setMessage("");
+    setState(d.state); setMessage("");
   };
 
   const startQna = async () => {
     const query = message || "what does my telemetry contain?";
     const r = await fetch("/api/chat/start_qna", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query }) });
     const d = await r.json();
-    setQnaRunId(d.run_id);
-    setQnaStreaming(true);
+    setQnaRunId(d.run_id); setQnaStreaming(true);
   };
 
   const streamQnaNext = async () => {
@@ -69,7 +63,6 @@ function App() {
     const r = await fetch("/api/chat/stream_qna_next", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ run_id: qnaRunId }) });
     const d = await r.json();
     setState(d.state);
-    typeAppend(d.event?.message || "");
     if (d.event?.requires_approval) setPending({ ...d.event, mode: "qna" });
     if (d.event?.done) setQnaStreaming(false);
   };
@@ -77,18 +70,14 @@ function App() {
   const qnaDecision = async (approve) => {
     const r = await fetch("/api/chat/qna_decision", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ run_id: qnaRunId, approve }) });
     const d = await r.json();
-    setState(d.state);
-    typeAppend(d.event?.message || "");
-    setPending(null);
+    setState(d.state); setPending(null);
     if (d.event?.done) setQnaStreaming(false);
   };
 
   const startRun = async () => {
     const r = await fetch("/api/chat/start_run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ run_time: runTime }) });
     const d = await r.json();
-    setRunId(d.run_id);
-    setState(d.state);
-    setStreaming(true);
+    setRunId(d.run_id); setState(d.state); setStreaming(true);
   };
 
   const streamNext = async () => {
@@ -96,7 +85,6 @@ function App() {
     const r = await fetch("/api/chat/stream_next", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ run_id: runId }) });
     const d = await r.json();
     setState(d.state);
-    typeAppend(d.event?.message || "");
     if (d.event?.requires_approval) setPending({ ...d.event, mode: "opt" });
     if (d.event?.done) setStreaming(false);
   };
@@ -105,10 +93,7 @@ function App() {
     if (pending?.mode === "qna") return qnaDecision(approve);
     const r = await fetch("/api/chat/decision", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ run_id: runId, approve }) });
     const d = await r.json();
-    setState(d.state);
-    setAudit(d.audit || []);
-    typeAppend(d.event?.message || "");
-    setPending(null);
+    setState(d.state); setAudit(d.audit || []); setPending(null);
     if (d.event?.done) setStreaming(false);
   };
 
@@ -137,9 +122,8 @@ function App() {
           <input placeholder="Telemetry DB path (optional)" value={conn.db_path} onChange={(e) => setConn({ ...conn, db_path: e.target.value })} style={{ width: "95%" }} />
           <div><button onClick={connectDb}>Connect + Fetch Tables</button></div>
           <h4>Tables + Sample Rows</h4>
-          <pre>{JSON.stringify(tables, null, 2)}</pre>
-          <h4>WLM Rules</h4>
-          <pre>{JSON.stringify(wlm, null, 2)}</pre>
+          {Object.entries(tables).map(([name, rows]) => <TablePreview key={name} name={name} rows={rows} />)}
+          <h4>WLM Rules</h4><pre>{JSON.stringify(wlm, null, 2)}</pre>
         </div>
 
         <div className="pane">
