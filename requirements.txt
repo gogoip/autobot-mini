@@ -1,0 +1,6 @@
+# Minimal backend dependencies for this demo.
+# React is loaded via CDN from ui/index.html (no Node/npm build required).
+
+langchain>=0.2.0
+langchain-groq>=0.1.9
+langgraph>=0.2.0
