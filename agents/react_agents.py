@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from langchain.agents import create_react_agent
+import importlib.util
 
 
 @dataclass
@@ -70,6 +70,10 @@ def build_agents(llm):
         "optimizer": "Generate ranked actions with impact and risk.",
         "executor": "Execute only approved actions and update audit trail.",
     }
+    if importlib.util.find_spec("langchain.agents") is None:
+        return {k: {"agent_type": "stub", "prompt": v} for k, v in prompts.items()}
+    from langchain.agents import create_react_agent
+
     return {k: create_react_agent(llm=llm, tools=[], prompt=v) for k, v in prompts.items()}
 
 
