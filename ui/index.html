@@ -1,0 +1,28 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Teradata Agentic Demo</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+      body { font-family: Arial, sans-serif; margin: 0; background: #f8fafc; }
+      .wrap { padding: 16px; }
+      .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+      .pane { background: white; border: 1px solid #ddd; border-radius: 8px; padding: 12px; min-height: 420px; }
+      button { margin-right: 8px; margin-top: 8px; }
+      pre { background: #111827; color: #d1fae5; padding: 8px; border-radius: 6px; white-space: pre-wrap; }
+      .chat { margin: 6px 0; padding: 8px; border-radius: 8px; border: 1px solid #e2e8f0; }
+      .user { background: #eff6ff; }
+      .assistant { background: #f0fdf4; }
+      .toolcard { background: #fff7ed; border: 1px solid #fdba74; border-radius: 8px; padding: 8px; margin-top: 8px; }
+      .smallbtn { font-size: 12px; padding: 2px 8px; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="text/babel" src="/app.js"></script>
+  </body>
+</html>
