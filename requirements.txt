@@ -1,6 +1,6 @@
-# Minimal backend dependencies for this demo
-# Note: React is loaded from CDN in ui/index.html, so no Node/npm dependency is required.
+# Minimal backend dependencies for this demo.
+# React is loaded via CDN from ui/index.html (no Node/npm build required).
 
-# Optional: enables real create_react_agent objects in agents/react_agents.py.
-# If omitted, the code falls back to stub agent metadata for demo-only mode.
 langchain>=0.2.0
+langchain-groq>=0.1.9
+langgraph>=0.2.0

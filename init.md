@@ -56,3 +56,18 @@ curl -s -X POST http://127.0.0.1:8000/api/run -H 'Content-Type: application/json
 - React frontend is intentionally lightweight and loaded from CDN (no build step).
 - Seed data is deterministic (`data/seed_data.py`) for repeatable demos.
 - If `langchain` is unavailable, agent creation falls back to stubs, but the autonomous tool-routing demo still works.
+
+
+## Optional LLM setup (Groq)
+```bash
+export GROQ_API_KEY="<your-key>"
+```
+The server will use `ChatGroq(model="llama-3.3-70b-versatile", temperature=1)` when this key is present.
+
+
+## Streaming + HITL chat flow
+- Start run: `POST /api/chat/start_run`
+- Stream next agent event: `POST /api/chat/stream_next`
+- Approve/reject pending tool call: `POST /api/chat/decision`
+
+Each tool execution pauses for user approval in chat (Approve / Reject buttons).

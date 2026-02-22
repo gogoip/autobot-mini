@@ -1,9 +1,11 @@
-"""Small demo API + static server for React frontend."""
+"""Small demo API + static server for React frontend with streaming HITL."""
 
 from __future__ import annotations
 
 import json
 import sys
+import time
+import uuid
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
@@ -12,11 +14,15 @@ PROJECT_ROOT = ROOT.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from agents.react_agents import apply_approved_action, run_autonomous_cycle
+from agents.react_agents import get_llm, next_event, start_run
 from data.seed_data import load_seed_bundle
+from data.sqlite_store import fetch_all, get_db_path, init_db
 
 STATE = {"agent_log": [], "chat": [], "latest_findings": [], "proposed_actions": []}
 SEED = load_seed_bundle()
+DB_PATH = init_db(get_db_path())
+LLM = get_llm()
+RUNS: dict[str, object] = {}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -50,40 +56,69 @@ class Handler(BaseHTTPRequestHandler):
             self._serve_file("app.js", "application/javascript")
             return
         if self.path == "/api/state":
-            self._json(200, {"state": STATE, "wlm_rules": SEED["wlm_rules"]})
+            audit = fetch_all(DB_PATH, "SELECT action_type, details, outcome, created_at FROM actions_audit ORDER BY id DESC LIMIT 20")
+            self._json(200, {"state": STATE, "wlm_rules": SEED["wlm_rules"], "audit": audit, "db_path": str(DB_PATH), "llm_enabled": LLM is not None})
             return
         self.send_response(404)
         self.end_headers()
 
     def do_POST(self):  # noqa: N802
-        if self.path == "/api/run":
-            payload = self._read_json()
-            run_time = payload.get("run_time", "20:00")
-            run_autonomous_cycle(STATE, SEED, run_time=run_time)
-            self._json(200, {"state": STATE})
-            return
-        if self.path == "/api/approve":
-            apply_approved_action(STATE, SEED)
-            self._json(200, {"state": STATE, "audit": SEED["actions_audit"]})
-            return
+        payload = self._read_json()
+
         if self.path == "/api/chat":
-            payload = self._read_json()
             msg = payload.get("message", "")
             if msg:
                 STATE["chat"].append({"role": "user", "content": msg})
-                STATE["chat"].append(
-                    {
-                        "role": "assistant",
-                        "content": "Acknowledged. Coordinator is routing telemetry, dependency, optimizer, and executor agents.",
-                    }
-                )
+                if LLM is not None:
+                    answer = LLM.invoke(
+                        "You are a Teradata batch optimization coordinator. "
+                        "Provide concise rationale summaries only (no hidden chain-of-thought). "
+                        "Mention that each tool execution is gated by human approval.\n"
+                        f"User: {msg}"
+                    ).content
+                else:
+                    answer = "Got it. I will stream tool-by-tool analysis updates and ask approval before each tool execution."
+                STATE["chat"].append({"role": "assistant", "content": answer})
             self._json(200, {"state": STATE})
             return
+
+        if self.path == "/api/chat/start_run":
+            run_time = payload.get("run_time", "20:00")
+            run_id = str(uuid.uuid4())
+            RUNS[run_id] = start_run(STATE, run_time=run_time)
+            self._json(200, {"run_id": run_id, "state": STATE})
+            return
+
+        if self.path == "/api/chat/stream_next":
+            run_id = payload.get("run_id")
+            ctx = RUNS.get(run_id)
+            if ctx is None:
+                self._json(404, {"error": "invalid run_id"})
+                return
+            time.sleep(0.6)
+            event = next_event(STATE, DB_PATH, ctx, approval=None)
+            STATE["chat"].append({"role": "assistant", "content": event["message"]})
+            self._json(200, {"event": event, "state": STATE})
+            return
+
+        if self.path == "/api/chat/decision":
+            run_id = payload.get("run_id")
+            approve = bool(payload.get("approve"))
+            ctx = RUNS.get(run_id)
+            if ctx is None:
+                self._json(404, {"error": "invalid run_id"})
+                return
+            event = next_event(STATE, DB_PATH, ctx, approval=approve)
+            STATE["chat"].append({"role": "assistant", "content": event["message"]})
+            audit = fetch_all(DB_PATH, "SELECT action_type, details, outcome, created_at FROM actions_audit ORDER BY id DESC LIMIT 20")
+            self._json(200, {"event": event, "state": STATE, "audit": audit})
+            return
+
         self.send_response(404)
         self.end_headers()
 
 
 if __name__ == "__main__":
     server = HTTPServer(("0.0.0.0", 8000), Handler)
-    print("Serving React demo at http://localhost:8000")
+    print(f"Serving React demo at http://localhost:8000 using db={DB_PATH}")
     server.serve_forever()
