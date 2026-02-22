@@ -71,3 +71,15 @@ The server will use `ChatGroq(model="llama-3.3-70b-versatile", temperature=1)` w
 - Approve/reject pending tool call: `POST /api/chat/decision`
 
 Each tool execution pauses for user approval in chat (Approve / Reject buttons).
+
+
+## Optional web search tool (Tavily)
+```bash
+export TAVILY_API_KEY="<your-key>"
+```
+When available, the QnA agent can fetch external references for optimization best practices.
+
+
+## Connection + preview flow
+- `POST /api/connect` with optional `{ "db_path": "/path/to/telemetry.db" }`
+- Returns all tables and sample rows for left-pane preview.
